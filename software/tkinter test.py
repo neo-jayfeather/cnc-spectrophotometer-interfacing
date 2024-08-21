@@ -6,7 +6,7 @@ s = serial.Serial('COM8', 115200)
 estTime = round(time.time() * 1000)
 pos = np.array([0,0,0])
 getPos = np.array([0,0,0])
-pts = [[0,0,0]*4]
+pts = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
 x = 1
 lastxyz = [0,0,0]
 
@@ -36,7 +36,8 @@ def set(command):
         if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[0] == "<"):
             tempPos = grbl_out.decode().strip().split(":")[1].split("|")[0].split(",")
             tempPos = [float(tempPos[0]),float(tempPos[1]),float(tempPos[2])]
-            getPos = np.array(tempPos) 
+            getPos = np.array(tempPos)
+            
 def updatePos(xyz):
     global lastxyz
     if 'currentPos' not in globals():
@@ -81,11 +82,16 @@ buttons = [
     [tk.Button(gui, text = "z down" , command = lambda : updatePos([0, 0, -x]), height = 2, width = 5) , 200, 125],
     [tk.Button(gui, text = "z up" , command = lambda : updatePos([0, 0, x]), height = 2, width = 5) , 200, 25],
     [tk.Button(gui, textvariable = btn_text, command = lambda : updateInc(), height = 2, width = 12), 200, 75], #Increments button
-    [tk.Button(gui, textvariable = ptsText[0], command = lambda : setPos(0), height = 2, width = 15), 25, 175],
-    [tk.Button(gui, textvariable = ptsText[1], command = lambda : setPos(1), height = 2, width = 15), 25, 225],
-    [tk.Button(gui, textvariable = ptsText[2], command = lambda : setPos(2), height = 2, width = 15), 150, 175],
-    [tk.Button(gui, textvariable = ptsText[3], command = lambda : setPos(3), height = 2, width = 15), 150, 225]
+    [tk.Button(gui, textvariable = ptsText[0], command = lambda : setPos(0), height = 2, width = 10), 25, 175],
+    [tk.Button(gui, textvariable = ptsText[1], command = lambda : setPos(1), height = 2, width = 10), 125, 175],
+    [tk.Button(gui, textvariable = ptsText[2], command = lambda : setPos(2), height = 2, width = 10), 25, 225],
+    [tk.Button(gui, textvariable = ptsText[3], command = lambda : setPos(3), height = 2, width = 10), 125, 225],
+    [tk.Button(gui, text = "P1", command = lambda : updatePos(np.subtract(np.array(pts[0]),np.array(currentPos))), height = 1, width = 4), 25, 300],
+    [tk.Button(gui, text = "P2", command = lambda : updatePos(np.subtract(np.array(currentPos),np.array(pts[1]))), height = 1, width = 4), 72, 300],
+    [tk.Button(gui, text = "P3", command = lambda : updatePos(np.subtract(np.array(currentPos),np.array(pts[2]))), height = 1, width = 4), 119, 300],
+    [tk.Button(gui, text = "P4", command = lambda : updatePos(np.subtract(np.array(currentPos),np.array(pts[3]))), height = 1, width = 4), 166, 300]
 ]
+
 inputs = [
     [tk.Text(gui, height = 1, width = 15),300,25],
     [tk.Text(gui, height = 1, width = 15),300,50]
@@ -93,6 +99,7 @@ inputs = [
 labels = [
     [tk.Label(gui,text =  "Rows :"), 250, 25],
     [tk.Label(gui,text = "Cols :"), 250, 50],
+    [tk.Label(gui,text = "Go to :"), 25, 275]
 ]
 btn_text.set(f"Increment : {x}")
 for x in range(len(buttons)):
