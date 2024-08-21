@@ -16,7 +16,7 @@ This project runs python, and its python has been tested in a python 3.12 envior
 - Time (included by default, for pauses)
 - numpy (for math)
 To install all the libraries, locate your python enviornment with pip, open a command line, then type 
-`py -m pip install tk serial numpy`
+`py -m pip install tk serial numpy`  
 ![GUI Image](./software/media/gui.png)
 
 
