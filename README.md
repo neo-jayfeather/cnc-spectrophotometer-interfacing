@@ -2,7 +2,7 @@
 > [!NOTE]
 > These programs use time, serial, numpy, and tkinter to function. Please make sure they are installed by running `py -m pip install serial numpy tk` under your python directory.
 
-
+![GUI Image](./software/media/2024-08-21%2000_25_13-Window.png)
 
 
 
