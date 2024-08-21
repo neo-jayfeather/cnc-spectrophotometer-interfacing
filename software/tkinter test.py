@@ -6,6 +6,7 @@ s = serial.Serial('COM8', 115200)
 estTime = round(time.time() * 1000)
 pos = np.array([0,0,0])
 getPos = np.array([0,0,0])
+currentPos = np.array([0,0,0])
 pts = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
 x = 1
 lastxyz = [0,0,0]
@@ -30,13 +31,14 @@ def set(command):
     s.write(b"?")
     while s.in_waiting != 0:
         grbl_out = s.readline() #read bytes
-        if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[:2] == "ok"):
+        '''if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[:2] == "ok"):
             #print(grbl_out.decode().strip())
-            a=1
+            a=1'''
         if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[0] == "<"):
             tempPos = grbl_out.decode().strip().split(":")[1].split("|")[0].split(",")
             tempPos = [float(tempPos[0]),float(tempPos[1]),float(tempPos[2])]
             getPos = np.array(tempPos)
+    getCurrPos()
             
 def updatePos(xyz):
     global lastxyz
@@ -67,11 +69,24 @@ def setPos(p):
     global pts
     pts[p] = currentPos
     ptsText[p].set(f"P{p+1}\n({pts[p][0]},{pts[p][1]},{pts[p][2]})")
+def getCurrPos():
+    global currPosStr
+    s.write(b"?")
+    time.sleep(0.1)
+    while s.in_waiting != 0:
+        grbl_out = s.readline()
+        try:
+            currPosStr.set(grbl_out.decode().strip().split(":")[1].split("|")[0])
+        except:
+            currPosStr.set(f"{currentPos[0]}, {currentPos[1]}, {currentPos[2]}")
+
 gui = tk.Tk()
 gui.title("CNC GUI Controller")
 btn_text = tk.StringVar()
+currPosStr = tk.StringVar()
+currPosStr.set("0.000, 0.000, 0.000")
 gui.geometry("450x350")
-ptsText = [tk.StringVar(),tk.StringVar(),tk.StringVar(),tk.StringVar()]
+ptsText = [tk.StringVar(),tk.StringVar(),tk.StringVar(),tk.StringVar(), tk.StringVar()]
 for x in range(len(ptsText)):
     ptsText[x].set(f"P{x+1}")
 buttons = [
@@ -89,7 +104,8 @@ buttons = [
     [tk.Button(gui, text = "P1", command = lambda : updatePos(np.subtract(np.array(pts[0]),np.array(currentPos))), height = 1, width = 4), 25, 300],
     [tk.Button(gui, text = "P2", command = lambda : updatePos(np.subtract(np.array(currentPos),np.array(pts[1]))), height = 1, width = 4), 72, 300],
     [tk.Button(gui, text = "P3", command = lambda : updatePos(np.subtract(np.array(currentPos),np.array(pts[2]))), height = 1, width = 4), 119, 300],
-    [tk.Button(gui, text = "P4", command = lambda : updatePos(np.subtract(np.array(currentPos),np.array(pts[3]))), height = 1, width = 4), 166, 300]
+    [tk.Button(gui, text = "P4", command = lambda : updatePos(np.subtract(np.array(currentPos),np.array(pts[3]))), height = 1, width = 4), 166, 300],
+    [tk.Button(gui, textvariable = currPosStr, command = lambda : getCurrPos()), 300, 75]
 ]
 
 inputs = [
@@ -100,6 +116,7 @@ labels = [
     [tk.Label(gui,text =  "Rows :"), 250, 25],
     [tk.Label(gui,text = "Cols :"), 250, 50],
     [tk.Label(gui,text = "Go to :"), 25, 275]
+    
 ]
 btn_text.set(f"Increment : {x}")
 for x in range(len(buttons)):
