@@ -1,14 +1,13 @@
-import tkinter as tk
+import tkinter as tk #default libs
 import serial
 import time
 import numpy as np
-s = serial.Serial('COM8', 115200)
-estTime = round(time.time() * 1000)
-pos = np.array([0,0,0])
-getPos = np.array([0,0,0])
+s = serial.Serial('COM8', 115200) #establish serial connection with COM8 @ 115200 baud rate
+getPos = np.array([0,0,0]) # these three are for positioning data, will maybe consolidate into a single one later
 currentPos = np.array([0,0,0])
 pts = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
-x = 1
+inc = 1 #increments
+increments = [0.1, 1, 5, 10, 100]
 lastxyz = [0,0,0]
 
 def get():
@@ -28,16 +27,14 @@ def set(command):
     global getPos
     command = command + "\r\n"
     s.write(command.encode()) #send bytes
-    s.write(b"?")
     while s.in_waiting != 0:
         grbl_out = s.readline() #read bytes
-        '''if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[:2] == "ok"):
-            #print(grbl_out.decode().strip())
-            a=1'''
-        if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[0] == "<"):
+        if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[:2] == "ok"):
+            print(grbl_out.decode().strip())
+        '''if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[0] == "<"):
             tempPos = grbl_out.decode().strip().split(":")[1].split("|")[0].split(",")
             tempPos = [float(tempPos[0]),float(tempPos[1]),float(tempPos[2])]
-            getPos = np.array(tempPos)
+            getPos = np.array(tempPos)'''
     getCurrPos()
             
 def updatePos(xyz):
@@ -52,8 +49,12 @@ def updatePos(xyz):
         print("ERROR") # if reported position != software (python) determined position, error
     lastxyz = xyz
 def updateInc():
-    global x
-    if(x == 1):
+    global inc
+    for x in range(len(increments)):
+        if(inc == increments[x]):
+            inc = increments[(x + 1)%len(increments)]
+            break
+    '''if(x == 1):
         x = 5
     elif(x == 5):
         x = 10
@@ -62,8 +63,8 @@ def updateInc():
     elif(x == 100):
         x = 0.1
     else:
-        x = 1
-    btn_text.set(f"Increment : {x}")
+        x = 1'''
+    btn_text.set(f"Increment : {inc}")
 def setPos(p):
     global currentPos
     global pts
@@ -73,11 +74,17 @@ def getCurrPos():
     global currPosStr
     s.write(b"?")
     time.sleep(0.1)
-    while s.in_waiting != 0:
+    flag = False
+    while s.in_waiting != 0 and flag == False: # this may cause an infinite loop in a scenario I haven't covered
         grbl_out = s.readline()
+        if(grbl_out.decode().strip().split("|")[0] == "<Idle"):
+            flag = True
+        else:
+            s.write(b"?")
         try:
             currPosStr.set(grbl_out.decode().strip().split(":")[1].split("|")[0])
         except:
+            flag = True
             currPosStr.set(f"{currentPos[0]}, {currentPos[1]}, {currentPos[2]}")
 
 gui = tk.Tk()
@@ -90,12 +97,12 @@ ptsText = [tk.StringVar(),tk.StringVar(),tk.StringVar(),tk.StringVar(), tk.Strin
 for x in range(len(ptsText)):
     ptsText[x].set(f"P{x+1}")
 buttons = [
-    [tk.Button(gui, text = "left" , command = lambda : updatePos([-x, 0, 0]), height = 2, width = 5) , 25, 75],
-    [tk.Button(gui, text = "up"   , command = lambda : updatePos([0, x, 0]), height = 2, width = 5)   , 75, 25],
-    [tk.Button(gui, text = "right", command = lambda : updatePos([x, 0, 0]), height = 2, width = 5), 125,75],
-    [tk.Button(gui, text = "down" , command = lambda : updatePos([0, -x, 0]), height = 2, width = 5) , 75, 125],
-    [tk.Button(gui, text = "z down" , command = lambda : updatePos([0, 0, -x]), height = 2, width = 5) , 200, 125],
-    [tk.Button(gui, text = "z up" , command = lambda : updatePos([0, 0, x]), height = 2, width = 5) , 200, 25],
+    [tk.Button(gui, text = "left" , command = lambda : updatePos([-inc, 0, 0]), height = 2, width = 5) , 25, 75],
+    [tk.Button(gui, text = "up"   , command = lambda : updatePos([0, inc, 0]), height = 2, width = 5)   , 75, 25],
+    [tk.Button(gui, text = "right", command = lambda : updatePos([inc, 0, 0]), height = 2, width = 5), 125,75],
+    [tk.Button(gui, text = "down" , command = lambda : updatePos([0, -inc, 0]), height = 2, width = 5) , 75, 125],
+    [tk.Button(gui, text = "z down" , command = lambda : updatePos([0, 0, -inc]), height = 2, width = 5) , 200, 125],
+    [tk.Button(gui, text = "z up" , command = lambda : updatePos([0, 0, inc]), height = 2, width = 5) , 200, 25],
     [tk.Button(gui, textvariable = btn_text, command = lambda : updateInc(), height = 2, width = 12), 200, 75], #Increments button
     [tk.Button(gui, textvariable = ptsText[0], command = lambda : setPos(0), height = 2, width = 10), 25, 175],
     [tk.Button(gui, textvariable = ptsText[1], command = lambda : setPos(1), height = 2, width = 10), 125, 175],
