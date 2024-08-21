@@ -3,10 +3,12 @@ import serial
 import time
 import numpy as np
 s = serial.Serial('COM8', 115200)
+estTime = round(time.time() * 1000)
 pos = np.array([0,0,0])
+getPos = np.array([0,0,0])
+pts = [[0,0,0]*4]
 x = 1
-global lastLine
-lastLine = None
+lastxyz = [0,0,0]
 
 def get():
     time.sleep(0.25)
@@ -20,59 +22,85 @@ def get():
             print(grbl_out.strip().decode().split('|')[1])
             stop = True
         except :
-            print(grbl_out.strip().decode())
+            return(grbl_out.strip().decode().split(":")[0])
 def set(command):
+    global getPos
     command = command + "\r\n"
     s.write(command.encode()) #send bytes
+    s.write(b"?")
     while s.in_waiting != 0:
-        global lastLine
-        global counter
         grbl_out = s.readline() #read bytes
-        if(lastLine == grbl_out):
-            print(grbl_out.strip().decode() + f"({int(counter/2)})", end = "\r")
-            counter += 1
-        else:
-            print("\n" + grbl_out.strip().decode())
-            counter =  0
-        lastLine = grbl_out      
+        if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[:2] == "ok"):
+            #print(grbl_out.decode().strip())
+            a=1
+        if(grbl_out[len(grbl_out)-2] == 13 and grbl_out[len(grbl_out)-1] == 10 and grbl_out.decode()[0] == "<"):
+            tempPos = grbl_out.decode().strip().split(":")[1].split("|")[0].split(",")
+            tempPos = [float(tempPos[0]),float(tempPos[1]),float(tempPos[2])]
+            getPos = np.array(tempPos) 
 def updatePos(xyz):
+    global lastxyz
     if 'currentPos' not in globals():
         global currentPos
-        currentPos = [0,0,0]
+        currentPos = [float(0),float(0),float(0)]
     xyz = np.array(xyz)
     currentPos = np.add(currentPos, xyz)
     set(f"X{currentPos[0]} Y{currentPos[1]} Z{currentPos[2]}")
+    if ((np.add(np.add(getPos, xyz), lastxyz) != currentPos).all()): #due to a 2 command input lag
+        print("ERROR") # if reported position != software (python) determined position, error
+    lastxyz = xyz
 def updateInc():
     global x
-    y = x
-    if(y == 1):
-        y = 5
-    elif(y == 5):
-        y = 10
-    elif(y == 10):
-        y = 100
+    if(x == 1):
+        x = 5
+    elif(x == 5):
+        x = 10
+    elif(x == 10):
+        x = 100
+    elif(x == 100):
+        x = 0.1
     else:
-        y = 1
-    x = y
-    a = buttons[6]
-    a["text"] = f"Increments : {x}"
-
-    #buttons[6]["text"] = f"Increments : {x}"
+        x = 1
+    btn_text.set(f"Increment : {x}")
+def setPos(p):
+    global currentPos
+    global pts
+    pts[p] = currentPos
+    ptsText[p].set(f"P{p+1}\n({pts[p][0]},{pts[p][1]},{pts[p][2]})")
 gui = tk.Tk()
 gui.title("CNC GUI Controller")
+btn_text = tk.StringVar()
 gui.geometry("450x350")
+ptsText = [tk.StringVar(),tk.StringVar(),tk.StringVar(),tk.StringVar()]
+for x in range(len(ptsText)):
+    ptsText[x].set(f"P{x+1}")
 buttons = [
-    [tk.Button(gui, text = "left" , command = lambda : updatePos([-x, 0, 0])) , 25, 100],
-    [tk.Button(gui, text = "up"   , command = lambda : updatePos([0, x, 0]))   , 100, 25],
-    [tk.Button(gui, text = "right", command = lambda : updatePos([x, 0, 0])), 175,100],
-    [tk.Button(gui, text = "down" , command = lambda : updatePos([0, -x, 0])) , 100, 175],
-    [tk.Button(gui, text = "z down" , command = lambda : updatePos([0, 0, -x])) , 300, 175],
-    [tk.Button(gui, text = "z up" , command = lambda : updatePos([0, 0, x])) , 300, 25],
-    [tk.Button(gui, text = f"Increments : {x}", command = lambda : updateInc()), 300, 100]
+    [tk.Button(gui, text = "left" , command = lambda : updatePos([-x, 0, 0]), height = 2, width = 5) , 25, 75],
+    [tk.Button(gui, text = "up"   , command = lambda : updatePos([0, x, 0]), height = 2, width = 5)   , 75, 25],
+    [tk.Button(gui, text = "right", command = lambda : updatePos([x, 0, 0]), height = 2, width = 5), 125,75],
+    [tk.Button(gui, text = "down" , command = lambda : updatePos([0, -x, 0]), height = 2, width = 5) , 75, 125],
+    [tk.Button(gui, text = "z down" , command = lambda : updatePos([0, 0, -x]), height = 2, width = 5) , 200, 125],
+    [tk.Button(gui, text = "z up" , command = lambda : updatePos([0, 0, x]), height = 2, width = 5) , 200, 25],
+    [tk.Button(gui, textvariable = btn_text, command = lambda : updateInc(), height = 2, width = 12), 200, 75], #Increments button
+    [tk.Button(gui, textvariable = ptsText[0], command = lambda : setPos(0), height = 2, width = 15), 25, 175],
+    [tk.Button(gui, textvariable = ptsText[1], command = lambda : setPos(1), height = 2, width = 15), 25, 225],
+    [tk.Button(gui, textvariable = ptsText[2], command = lambda : setPos(2), height = 2, width = 15), 150, 175],
+    [tk.Button(gui, textvariable = ptsText[3], command = lambda : setPos(3), height = 2, width = 15), 150, 225]
 ]
-btn_text = f"Increments: {x}"
+inputs = [
+    [tk.Text(gui, height = 1, width = 15),300,25],
+    [tk.Text(gui, height = 1, width = 15),300,50]
+]
+labels = [
+    [tk.Label(gui,text =  "Rows :"), 250, 25],
+    [tk.Label(gui,text = "Cols :"), 250, 50],
+]
+btn_text.set(f"Increment : {x}")
 for x in range(len(buttons)):
     buttons[x][0].place(x = buttons[x][1], y = buttons[x][2])
+for x in range(len(inputs)):
+    inputs[x][0].place(x = inputs[x][1], y = inputs[x][2])
+for x in range(len(labels)):
+    labels[x][0].place(x = labels[x][1], y = labels[x][2])
 gui.mainloop()
 
 
